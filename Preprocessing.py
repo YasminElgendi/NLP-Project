@@ -1,11 +1,16 @@
 ### Add all imports
-import subprocess
-import arabic_reshaper
+# import subprocess
+import re
+import nltk
+from nltk.stem.isri import ISRIStemmer
+import pyarabic.trans
+import fasttext
+# import arabic_reshaper
 from bidi.algorithm import get_display
 #######################################################
 
-def install_libraries(requirements_file_path):
-    subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-r', requirements_file_path])
+# def install_libraries(requirements_file_path):
+#     subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-r', requirements_file_path])
 
 def read_training_dataset(file_path = "dataset/train.txt", encoding = "utf-8"):
     training_sentences = []
@@ -35,14 +40,48 @@ def read_dev_dataset(file_path = "dataset/val.txt", encoding = "utf-8"):
 def data_Cleaning():
     pass
 
-def tokenize(sentence):
-    # Reshape the Arabic sentence to its proper form
-    reshaped_text = arabic_reshaper.reshape(sentence)
+
+def stem(word):
+    stemmer = ISRIStemmer()
+    stemmed_word = stemmer.stem(word)
+    return stemmed_word
+
+def POS_tagging(token):
+    tagged_tokens = nltk.pos_tag(token, lang='arb')
+    return tagged_tokens
+
+def tokenize_to_vocab(data, vocab):
+    tokenized_sentences = []
+    for d in (data):
+            tokens = nltk.word_tokenize(d, language="arabic", preserve_line=True)
+            # Add the start sentence <s> and end sentence </s> tokens at the beginning and end of each tokenized sentence
+            # for token in tokens:
+            #     token = stem(token)
+            tokens.insert(0,"<s>")
+            tokens.append("</s>")
+            vocab.update(tokens)
+            tokenized_sentences.append(tokens)
     
-    # Get the sentence with proper right-to-left ordering
-    displayed_text = get_display(reshaped_text)
-    
-    # Split the sentence into tokens (words)
-    tokens = displayed_text.split()
-    
-    return tokens
+    return vocab, tokenized_sentences
+
+def extract_arabic_letters(input_word):
+    # Define a regular expression pattern for standard Arabic letters
+    # pattern = re.compile(r"[\u0600-\u06FF]+") #NOTE returns all letter and dialects
+    pattern = re.compile(r"[\u0621-\u064A\s]+")
+
+    # Find all matches and join them
+    # This will exclude non-letter characters and diacritics
+    result = "".join(pattern.findall(input_word))
+
+    return result
+
+def extract_diacritics(word, coding = "decimal"):
+    # Return encoding of word diacritics in decimal
+    return pyarabic.trans.encode_tashkeel(word, coding)[1]
+
+def join_word_diacritics(word, diacritics, coding = "decimal"):
+    # Writes a word with its corresponding diacritics
+    return pyarabic.trans.decode_tashkeel(word, diacritics, coding)
+
+def word_to_embedding(word):
+    return
