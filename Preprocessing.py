@@ -4,13 +4,14 @@ import re
 import nltk
 from nltk.stem.isri import ISRIStemmer
 import pyarabic.trans
-import fasttext
-# import arabic_reshaper
-from bidi.algorithm import get_display
+import numpy as np
 #######################################################
 
-# def install_libraries(requirements_file_path):
-#     subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-r', requirements_file_path])
+# Fat7a = 4, damma =5, kasra = 6, sokoon = 7
+# tanween fat7a =1, damma=2 , kasraa=3
+# shadda =70
+# CONSTANTS
+DIACRITICS = np.array([1,2,3,4,5,6,7,70])
 
 def read_training_dataset(file_path = "dataset/train.txt", encoding = "utf-8"):
     training_sentences = []
@@ -46,9 +47,8 @@ def stem(word):
     stemmed_word = stemmer.stem(word)
     return stemmed_word
 
-def POS_tagging(token):
-    tagged_tokens = nltk.pos_tag(token, lang='arb')
-    return tagged_tokens
+
+    
 
 def tokenize_to_vocab(data, vocab):
     tokenized_sentences = []
@@ -84,4 +84,9 @@ def join_word_diacritics(word, diacritics, coding = "decimal"):
     return pyarabic.trans.decode_tashkeel(word, diacritics, coding)
 
 def word_to_embedding(word):
-    return
+    embedding = [int(ord(x)) for x in word]
+    return sum(embedding)
+
+# def char_to_embedding(char):
+#     embedding = [int(ord(x)) for x in word]
+#     return sum(embedding)
