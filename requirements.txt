@@ -1,0 +1,4 @@
+PyArabic
+torch
+pickle
+unicodedata
