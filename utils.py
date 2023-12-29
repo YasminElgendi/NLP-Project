@@ -72,19 +72,19 @@ def separate_word_to_letters_diacritics(arabic_text):
         if not unicodedata.combining(normalized_text[ind]):
             letters.append(normalized_text[ind])
             # print("added to letters",normalized_text[ind])
-            ind+=1
 
-            if(ind+1 < len(normalized_text) and unicodedata.combining(normalized_text[ind+1])):
+            if(ind+1 < len(normalized_text) and not unicodedata.combining(normalized_text[ind+1])):
                 diacritics.append(temp)
                 # print("added to diacritics from 1st",temp)
+            ind+=1
 
         else:
             while ind < len(normalized_text) and unicodedata.combining(normalized_text[ind]):
                 # diacritics.pop(0)
                 temp.append(normalized_text[ind])
                 ind+=1
-                diacritics.append(temp)
-                # print("added to diacritics",temp)
+            diacritics.append(temp)
+            # print("added to diacritics",temp)
     
     return letters, diacritics
 
