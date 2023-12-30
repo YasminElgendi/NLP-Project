@@ -2,3 +2,4 @@ PyArabic
 torch
 pickle
 unicodedata
+tenserflow

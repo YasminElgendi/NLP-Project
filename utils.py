@@ -2,15 +2,30 @@ import pickle
 import unicodedata
 import nltk
 import torch
-from torch import nn
+from torch import lstm_cell, nn
+import time
+import random
+import numpy as np
+import pickle as pkl
+import tensorflow as tf
+
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Embedding, Dense, Dropout, LSTM, Bidirectional, TimeDistributed , Input ,Embedding, Dense, Dropout, LSTM, Bidirectional, TimeDistributed
+from tensorflow.keras.utils import Sequence
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.initializers import glorot_normal
+from tensorflow.keras.callbacks import ModelCheckpoint
+import matplotlib.pyplot as plt
+import re
+from sklearn.model_selection import train_test_split
+
 ########################################################################################
 # Read the letters from the pickle files which we will use
 def get_letters():
-
     file_path = 'constants/arabic_letters.pickle'
     with open(file_path, 'rb') as file:
         letters = pickle.load(file)
-
     return letters
 ########################################################################################
 # Read the diacritics from the pickle files which we will use
@@ -123,8 +138,124 @@ def map_data(data_raw):
     pass
 
 ########################################################################################
-def create_model():
-    pass
+def create_model(CHARACTERS_MAPPING, CLASSES_MAPPING ):
+    ''' Creates diacritization model '''
+
+
+    SelectedLSTM = LSTM
+    
+    inputs = Input(shape=(None,))
+    
+    embeddings = Embedding(input_dim=len(CHARACTERS_MAPPING),
+                           output_dim=25,
+                           embeddings_initializer=glorot_normal(seed=961))(inputs)
+    
+    blstm1 = Bidirectional(SelectedLSTM(units=256,
+                                     return_sequences=True,
+                                     kernel_initializer=glorot_normal(seed=961)))(embeddings)
+    dropout1 = Dropout(0.5)(blstm1)
+    blstm2 = Bidirectional(SelectedLSTM(units=256,
+                                     return_sequences=True,
+                                     kernel_initializer=glorot_normal(seed=961)))(dropout1)
+    dropout2 = Dropout(0.5)(blstm2)
+    
+    dense1 = TimeDistributed(Dense(units=512,
+                                   activation='relu',
+                                   kernel_initializer=glorot_normal(seed=961)))(dropout2)
+    dense2 = TimeDistributed(Dense(units=512,
+                                   activation='relu',
+                                   kernel_initializer=glorot_normal(seed=961)))(dense1)
+    
+    output = TimeDistributed(Dense(units=len(CLASSES_MAPPING),
+                                   activation='softmax',
+                                   kernel_initializer=glorot_normal(seed=961)))(dense2)
+    
+    model = Model(inputs, output)
+    
+    # compile model
+    model.compile(loss='categorical_crossentropy', optimizer=Adam())
+    
+    return model
+########################################################################################
+class DataGenerator(Sequence):
+    ''' Costumized data generator to input line batches into the model '''
+    def __init__(self, lines, batch_size):
+        self.lines = lines
+        self.batch_size = batch_size
+
+    def __len__(self):
+        return int(np.ceil(len(self.lines) / float(self.batch_size)))
+
+    def __getitem__(self, idx):
+        lines = self.lines[idx * self.batch_size:(idx + 1) * self.batch_size]
+        X_batch, Y_batch = map_data(lines)
+        
+        X_max_seq_len = np.max([len(x) for x in X_batch])
+        Y_max_seq_len = np.max([len(y) for y in Y_batch])
+        
+        assert(X_max_seq_len == Y_max_seq_len)
+        
+        X = list()
+        for x in X_batch:
+            x = list(x)
+            x.extend([CHARACTERS_MAPPING['<PAD>']] * (X_max_seq_len - len(x)))
+            X.append(np.asarray(x))
+        
+        Y_tmp = list()
+        for y in Y_batch:
+            y_new = list(y)
+            y_new.extend(to_categorical([CLASSES_MAPPING['<PAD>']] * (Y_max_seq_len - len(y)), len(CLASSES_MAPPING)))
+            Y_tmp.append(np.asarray(y_new))
+        Y_batch = Y_tmp
+        
+        Y_batch = np.array(Y_batch)
+        
+        return (np.array(X), Y_batch)
+    
+########################################################################################
+def fit_model(model, epochs, batch_size, train_split,val_split):
+    ''' Fits model '''
+
+    
+    # create training and validation generators
+    training_generator = DataGenerator(train_split, batch_size)
+    val_generator = DataGenerator(val_split, batch_size)
+    
+
+    # fit model
+    history = model.fit(x=training_generator,
+              validation_data=val_generator,
+              epochs=epochs
+              )
+
+    # return history
+    return history
+########################################################################################
+def predict(line, model):
+    ''' predict test line '''
+    X, _ = map_data([line])
+    predictions = model.predict(X).squeeze()
+    # get most probable diacritizations for each character
+    predictions = predictions[1:]
+    
+    # initialize empty output line 
+    output = ''
+    # loop on input characters and predicted diacritizations
+    for char, prediction in zip(remove_diacritics(line), predictions):
+        # append character
+        output += char
+        # if character is not an arabic letter continue
+        if char not in ARABIC_LETTERS_LIST:
+            continue
+        
+        if '<' in REV_CLASSES_MAPPING[np.argmax(prediction)]:
+            continue
+
+        # if character in arabic letters append predicted diacritization
+        output += REV_CLASSES_MAPPING[np.argmax(prediction)]
+
+    return output
+
 ########################################################################################
 
 class RNNModel(nn.Module):
@@ -159,4 +290,4 @@ class RNNModel(nn.Module):
         return hidden
 
 # Example usage:
-model = RNNModel(input_size=36, hidden_size=128, output_size=10, n_layers=2)
+# model = RNNModel(input_size=36, hidden_size=128, output_size=10, n_layers=2)
