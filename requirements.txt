@@ -3,3 +3,4 @@ torch
 pickle
 unicodedata
 tenserflow
+pyyaml h5py
