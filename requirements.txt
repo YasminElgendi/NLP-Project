@@ -4,3 +4,4 @@ pickle
 unicodedata
 tenserflow
 pyyaml h5py
+gensim
